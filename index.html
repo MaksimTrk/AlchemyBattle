@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alchemy Duel</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="stats">
+    <div class="stat-box">
+        <span>Player</span>
+        <div class="hp-bar"><div id="player-hp-fill" class="hp-fill"></div></div>
+        <span id="player-hp-text">100/100</span>
+    </div>
+
+    <div id="book-container" onclick="toggleRecipeBook()">
+        <img src="assets/book_texture.png" id="book-button" alt="Recipes">
+    </div>
+
+    <div class="stat-box">
+        <span>Enemy</span>
+        <div class="hp-bar"><div id="enemy-hp-fill" class="hp-fill"></div></div>
+        <span id="enemy-hp-text">100/100</span>
+    </div>
+</div>
+
+        <div class="battle-arena">
+            <div id="player-sprite">🧙‍♂️</div>
+            <div id="log">Get ready for the duel! Choose 2 ingredients.</div>
+            <div id="enemy-sprite">👹</div>         
+        </div>
+        <div id="recipe-book" class="hidden">
+            <div class="book-body">
+                <span class="close-book" onclick="toggleRecipeBook()">&times;</span>
+                <h2 class="book-title">Grimoire</h2>
+                <div id="recipes-list"></div>
+            </div>
+        </div>
+        <div id="restart-container" style="display: none; text-align: center; margin-top: 20px;">
+            <button id="restart-btn" onclick="resetGame()" style="padding: 15px 30px; font-size: 1.2rem; cursor: pointer; background: #e94560; color: white; border: none; border-radius: 10px;">
+                Play Again
+            </button>
+        </div>
+        <div class="crafting-area">
+            <div class="slot" id="slot-1">?</div>
+            <div class="plus">+</div>
+            <div class="slot" id="slot-2">?</div>
+        </div>
+        
+
+        <div id="hand" class="hand">
+            </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
