@@ -1,11 +1,39 @@
 const state = {
     playerHP: 100,
     enemyHP: 100,
-    // Deck contains only IDs (strings) for stable logic
+    enemyMaxHP: 100,
+    currentEnemyIndex: 0,
     deck: ['fire', 'water', 'root', 'mercury', 'fire', 'water', 'root'],
     hand: [],
     selected: [] 
 };
+
+const ENEMIES = [
+    { 
+        name: "Goblin", 
+        hp: 100, 
+        asset: 'assets/goblin.png', 
+        attackAsset: 'assets/goblin_attack.png',
+        background: 'assets/forest_bg.png',
+        special: null 
+    },
+    { 
+        name: "Swamp Wizard", 
+        hp: 120, 
+        asset: 'assets/swamp_wizard.png', 
+        attackAsset: 'assets/swamp_wizard_attack.png',
+        background: 'assets/swamp_bg.png',
+        special: function(damage) {
+            const chance = Math.random();
+            if (chance < 0.33) {
+                state.enemyHP += damage;
+                if (state.enemyHP > state.enemyMaxHP) state.enemyHP = state.enemyMaxHP;
+                return `Vampirism! Wizard stole ${damage} HP!`;
+            }
+            return null;
+        }
+    }
+];
 
 const ASSETS = {
     // Інгредієнти
@@ -18,10 +46,6 @@ const ASSETS = {
     playerDefault: 'assets/wizard.png',
     playerAttack: 'assets/wizard_attack.png',
     playerHeal: 'assets/wizard_heal.png',
-    
-    // Ворог
-    enemyDefault: 'assets/goblin.png',
-    enemyAttack: 'assets/goblin_attack.png'
 };
 
 const RECIPES = {
@@ -74,7 +98,42 @@ function selectIngredient(index) {
         }
     }
 }
+function toggleRecipeBook() {
+    const book = document.getElementById('recipe-book');
+    if (!book) return;
+    
+    book.classList.toggle('hidden');
+    
+    // Якщо книгу відкрито, оновлюємо список рецептів
+    if (!book.classList.contains('hidden')) {
+        renderRecipes();
+    }
+}
 
+function renderRecipes() {
+    const list = document.getElementById('recipes-list');
+    list.innerHTML = '';
+
+    // Перебираємо об'єкт RECIPES з вашого коду
+    for (const [ingredients, data] of Object.entries(RECIPES)) {
+        const entry = document.createElement('div');
+        entry.className = 'recipe-entry';
+        
+        // Форматуємо інгредієнти для відображення
+        const ingredientIcons = ingredients.split(',').join(' + ');
+
+        entry.innerHTML = `
+            <div><small>${ingredientIcons}</small></div>
+            <div><b>${data.name}</b></div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">${data.msg}</div>
+            <div style="font-size: 0.8rem; margin-top: 4px;">
+                ${data.damage > 0 ? '⚔️ Damage: ' + data.damage : ''}
+                ${data.heal > 0 ? '💚 Heal: ' + data.heal : ''}
+            </div>
+        `;
+        list.appendChild(entry);
+    }
+}
 function updateSlots() {
     const s1 = state.selected[0];
     const s2 = state.selected[1];
@@ -86,26 +145,44 @@ function triggerAction(entity, type) {
     const elementId = entity === 'player' ? 'player-sprite' : 'enemy-sprite';
     const container = document.getElementById(elementId);
     const img = container.querySelector('img');
+    const currentEnemy = ENEMIES[state.currentEnemyIndex];
+
     let newSrc;
     if (entity === 'player') {
         newSrc = type === 'attack' ? ASSETS.playerAttack : ASSETS.playerHeal;
     } else {
-        newSrc = ASSETS.enemyAttack;
+        newSrc = currentEnemy.attackAsset; // Беремо атаку поточного ворога
     }
     
     img.src = newSrc;
     container.classList.add('action-pulse');
     setTimeout(() => {
-        img.src = entity === 'player' ? ASSETS.playerDefault : ASSETS.enemyDefault;
+        img.src = entity === 'player' ? ASSETS.playerDefault : currentEnemy.asset;
         container.classList.remove('action-pulse');
     }, 1200);
 }
+function loadEnemy(index) {
+    const enemy = ENEMIES[index];
+    state.enemyHP = enemy.hp;
+    state.enemyMaxHP = enemy.hp;
+    
+    // Знаходимо основний контейнер гри
+    const gameContainer = document.getElementById('game-container');
+    
+    if (enemy.background) {
+        gameContainer.style.backgroundImage = `url('${enemy.background}')`;
+    }
+    
+    const enemySprite = document.getElementById('enemy-sprite');
+    enemySprite.innerHTML = `<img src="${enemy.asset}" style="width:120px;">`;
+    
+    log.innerText = `A wild ${enemy.name} appears!`;
+    updateUI();
+}
 function setupSprites() {
     const playerSprite = document.getElementById('player-sprite');
-    const enemySprite = document.getElementById('enemy-sprite');
-
     playerSprite.innerHTML = `<img src="${ASSETS.playerDefault}" style="width:120px;">`;
-    enemySprite.innerHTML = `<img src="${ASSETS.enemyDefault}" style="width:120px;">`;
+    loadEnemy(state.currentEnemyIndex); // Завантажуємо першого ворога
 }
 
 setupSprites();
@@ -125,6 +202,7 @@ function checkCombo() {
 
     state.selected = [];
     updateSlots();
+    refillHand();
     updateUI();
     
     if (state.enemyHP > 0 && state.playerHP > 0) {
@@ -148,15 +226,22 @@ function applyEffect(effect) {
 function updateUI() {
     document.getElementById('player-hp-fill').style.width = Math.max(0, state.playerHP) + '%';
     document.getElementById('player-hp-text').innerText = `${state.playerHP}/100`;
-    
-    document.getElementById('enemy-hp-fill').style.width = Math.max(0, state.enemyHP) + '%';
-    document.getElementById('enemy-hp-text').innerText = `${state.enemyHP}/100`;
-    
-    if (state.playerHP <= 0) {
-        log.innerText = "GAME OVER. The darkness consumes you...";
-        endGame();
-    } else if (state.enemyHP <= 0) {
-        log.innerText = "VICTORY! The monster has been banished.";
+
+    const enemyPercentage = (state.enemyHP / state.enemyMaxHP) * 100;
+    document.getElementById('enemy-hp-fill').style.width = Math.max(0, enemyPercentage) + '%';
+    document.getElementById('enemy-hp-text').innerText = `${state.enemyHP}/${state.enemyMaxHP}`;
+
+    if (state.enemyHP <= 0) {
+        if (state.currentEnemyIndex < ENEMIES.length - 1) {
+            state.currentEnemyIndex++;
+            log.innerText = "Enemy defeated! Next one is coming...";
+            setTimeout(() => loadEnemy(state.currentEnemyIndex), 2000);
+        } else {
+            log.innerText = "VICTORY! All enemies defeated!";
+            endGame();
+        }
+    } else if (state.playerHP <= 0) {
+        log.innerText = "GAME OVER...";
         endGame();
     }
 }
@@ -165,24 +250,30 @@ function enemyTurn() {
     log.innerText += " ...Enemy is preparing...";
     
     setTimeout(() => {
-        if (state.enemyHP <= 0) return; // Перевірка, чи ворог живий
+        if (state.enemyHP <= 0) return;
 
-        // 1. Розрахунок випадкової шкоди (наприклад, від 8 до 16)
+        const currentEnemy = ENEMIES[state.currentEnemyIndex];
         const minDamage = 8;
         const maxDamage = 16;
-        const randomDamage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
+        const damage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
 
-        // 2. Візуальна активація атаки
         triggerAction('enemy', 'attack');
+        state.playerHP -= damage;
         
-        // 3. Нанесення шкоди
-        state.playerHP -= randomDamage;
+        let message = `Enemy attacks! It dealt ${damage} damage.`;
+
+        // ПЕРЕВІРКА ОСОБЛИВОЇ ЗДІБНОСТІ
+        if (currentEnemy.special) {
+            const specialMessage = currentEnemy.special(damage);
+            if (specialMessage) {
+                message += ` ${specialMessage}`;
+            }
+        }
         
-        // 4. Виведення повідомлення (стилізоване під повідомлення гравця)
-        log.innerText = `Enemy attacks! It dealt ${randomDamage} damage to you.`;
+        log.innerText = message;
         
-        // 5. Оновлення інтерфейсу та добір карт
-        refillHand();
+        // Добір карт тут, якщо ви не перенесли його в checkCombo
+        refillHand(); 
         updateUI();
     }, 1200);
 }
