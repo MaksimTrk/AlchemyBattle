@@ -11,7 +11,7 @@ const state = {
 const ENEMIES = [
     { 
         name: "Goblin", 
-        hp: 1, 
+        hp: 100, 
         asset: 'assets/goblin.png', 
         attackAsset: 'assets/goblin_attack.png',
         background: 'assets/forest_bg.png',
@@ -20,7 +20,7 @@ const ENEMIES = [
     },
     { 
         name: "Swamp Wizard", 
-        hp: 1, 
+        hp: 120, 
         asset: 'assets/swamp_wizard.png', 
         attackAsset: 'assets/swamp_wizard_attack.png',
         background: 'assets/swamp_bg.png',
