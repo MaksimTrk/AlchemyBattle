@@ -11,7 +11,7 @@ const state = {
 const ENEMIES = [
     { 
         name: "Goblin", 
-        hp: 100, 
+        hp: 1, 
         asset: 'assets/goblin.png', 
         attackAsset: 'assets/goblin_attack.png',
         background: 'assets/forest_bg.png',
@@ -20,7 +20,7 @@ const ENEMIES = [
     },
     { 
         name: "Swamp Wizard", 
-        hp: 120, 
+        hp: 1, 
         asset: 'assets/swamp_wizard.png', 
         attackAsset: 'assets/swamp_wizard_attack.png',
         background: 'assets/swamp_bg.png',
@@ -34,6 +34,21 @@ const ENEMIES = [
             }
             return null;
         }
+    },
+    { 
+        name: "Swamp Ghost", 
+        hp: 150, 
+        asset: 'assets/swamp_ghost.png', 
+        attackAsset: 'assets/swamp_ghost_attack.png',
+        background: 'assets/swamp_ghost_bg.png',
+        attackSound: "swamp_ghost_atack",
+        special: function(damage) {
+        const chance = Math.random();
+        if (chance < 0.33) {
+            return "Ethereal! The ghost avoided damage!";
+        }
+        return null;
+    }
     }
 ];
 
@@ -225,9 +240,22 @@ function checkCombo() {
 
 function applyEffect(effect) {
     if (effect.damage > 0) {
-        playSound('wizard_atack');
-        triggerAction('player', 'attack');
-        state.enemyHP -= effect.damage;
+       const currentEnemy = ENEMIES[state.currentEnemyIndex];
+        const specialResult = currentEnemy.special ? currentEnemy.special(effect.damage) : null;
+        if (specialResult && currentEnemy.name === "Swamp Ghost") {
+            playSound('damage_dodge'); 
+            log.innerText = specialResult;
+        } else {
+            playSound('wizard_atack');
+            triggerAction('player', 'attack');
+            state.enemyHP -= effect.damage;
+
+            let logMsg = `You crafted ${effect.name}! ${effect.msg}`;
+            if (specialResult && currentEnemy.name === "Swamp Wizard") {
+                logMsg += ` ${specialResult}`;
+            }
+            log.innerText = logMsg;
+        }
     }
     if (effect.heal > 0) {
         playSound('wizard_heal');
@@ -247,6 +275,12 @@ function updateUI() {
     document.getElementById('enemy-hp-text').innerText = `${state.enemyHP}/${state.enemyMaxHP}`;
 
     if (state.enemyHP <= 0) {
+        const healAmount = Math.floor(state.playerHP * 0.5); 
+            state.playerHP += healAmount;
+            if (state.playerHP > 100) state.playerHP = 100; 
+            
+            playSound('wizard_heal');
+            log.innerText = `Enemy defeated! Restoring ${healAmount} HP. Next one is coming...`;
         if (state.currentEnemyIndex < ENEMIES.length - 1) {
             state.currentEnemyIndex++;
             log.innerText = "Enemy defeated! Next one is coming...";
