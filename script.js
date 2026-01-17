@@ -20,7 +20,7 @@ const ENEMIES = [
     },
     { 
         name: "Swamp Wizard", 
-        hp: 120, 
+        hp: 100, 
         asset: 'assets/swamp_wizard.png', 
         attackAsset: 'assets/swamp_wizard_attack.png',
         background: 'assets/swamp_bg.png',
@@ -357,3 +357,4 @@ function playSound(name) {
 }
 refillHand();
 updateUI();
+
