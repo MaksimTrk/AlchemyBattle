@@ -15,6 +15,7 @@ const ENEMIES = [
         asset: 'assets/goblin.png', 
         attackAsset: 'assets/goblin_attack.png',
         background: 'assets/forest_bg.png',
+        attackSound: "goblin_atack",
         special: null 
     },
     { 
@@ -23,6 +24,7 @@ const ENEMIES = [
         asset: 'assets/swamp_wizard.png', 
         attackAsset: 'assets/swamp_wizard_attack.png',
         background: 'assets/swamp_bg.png',
+        attackSound: "swamp_wizard_atack",
         special: function(damage) {
             const chance = Math.random();
             if (chance < 0.33) {
@@ -63,7 +65,21 @@ const slot1 = document.getElementById('slot-1');
 const slot2 = document.getElementById('slot-2');
 const log = document.getElementById('log');
 const restartContainer = document.getElementById('restart-container');
+let backgroundMusic = null;
 
+function startBackgroundMusic() {
+    if (backgroundMusic) return;
+
+    backgroundMusic = new Audio('assets/sounds/background.mp3');
+    
+    backgroundMusic.loop = true;  
+    backgroundMusic.volume = 0.2; 
+    
+    backgroundMusic.play().catch(e => console.log("Music wait for interaction"));
+}
+
+
+document.addEventListener('click', startBackgroundMusic, { once: true });
 function refillHand() {
     while (state.hand.length < 5) {
         const randomIngredient = state.deck[Math.floor(Math.random() * state.deck.length)];
@@ -103,8 +119,7 @@ function toggleRecipeBook() {
     if (!book) return;
     
     book.classList.toggle('hidden');
-    
-    // Якщо книгу відкрито, оновлюємо список рецептів
+
     if (!book.classList.contains('hidden')) {
         renderRecipes();
     }
@@ -114,12 +129,10 @@ function renderRecipes() {
     const list = document.getElementById('recipes-list');
     list.innerHTML = '';
 
-    // Перебираємо об'єкт RECIPES з вашого коду
     for (const [ingredients, data] of Object.entries(RECIPES)) {
         const entry = document.createElement('div');
         entry.className = 'recipe-entry';
-        
-        // Форматуємо інгредієнти для відображення
+
         const ingredientIcons = ingredients.split(',').join(' + ');
 
         entry.innerHTML = `
@@ -151,7 +164,7 @@ function triggerAction(entity, type) {
     if (entity === 'player') {
         newSrc = type === 'attack' ? ASSETS.playerAttack : ASSETS.playerHeal;
     } else {
-        newSrc = currentEnemy.attackAsset; // Беремо атаку поточного ворога
+        newSrc = currentEnemy.attackAsset; 
     }
     
     img.src = newSrc;
@@ -165,8 +178,7 @@ function loadEnemy(index) {
     const enemy = ENEMIES[index];
     state.enemyHP = enemy.hp;
     state.enemyMaxHP = enemy.hp;
-    
-    // Знаходимо основний контейнер гри
+
     const gameContainer = document.getElementById('game-container');
     
     if (enemy.background) {
@@ -182,7 +194,7 @@ function loadEnemy(index) {
 function setupSprites() {
     const playerSprite = document.getElementById('player-sprite');
     playerSprite.innerHTML = `<img src="${ASSETS.playerDefault}" style="width:120px;">`;
-    loadEnemy(state.currentEnemyIndex); // Завантажуємо першого ворога
+    loadEnemy(state.currentEnemyIndex); 
 }
 
 setupSprites();
@@ -196,6 +208,7 @@ function checkCombo() {
     if (result) {
         applyEffect(result);
     } else {
+        playSound('fail');
         log.innerText = "Failure! The potion exploded (5 damage to self)";
         state.playerHP -= 5;
     }
@@ -212,10 +225,12 @@ function checkCombo() {
 
 function applyEffect(effect) {
     if (effect.damage > 0) {
+        playSound('wizard_atack');
         triggerAction('player', 'attack');
         state.enemyHP -= effect.damage;
     }
     if (effect.heal > 0) {
+        playSound('wizard_heal');
         triggerAction('player', 'heal');
         state.playerHP += effect.heal;
     }
@@ -256,13 +271,14 @@ function enemyTurn() {
         const minDamage = 8;
         const maxDamage = 16;
         const damage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
-
+        if (currentEnemy.attackSound) {
+            playSound(currentEnemy.attackSound);
+        }
         triggerAction('enemy', 'attack');
         state.playerHP -= damage;
         
         let message = `Enemy attacks! It dealt ${damage} damage.`;
 
-        // ПЕРЕВІРКА ОСОБЛИВОЇ ЗДІБНОСТІ
         if (currentEnemy.special) {
             const specialMessage = currentEnemy.special(damage);
             if (specialMessage) {
@@ -271,8 +287,7 @@ function enemyTurn() {
         }
         
         log.innerText = message;
-        
-        // Добір карт тут, якщо ви не перенесли його в checkCombo
+
         refillHand(); 
         updateUI();
     }, 1200);
@@ -301,6 +316,10 @@ function resetGame() {
     refillHand();
     updateUI();
 }
-
+function playSound(name) {
+    const audio = new Audio(`assets/sounds/${name}.mp3`);
+    audio.volume = 0.5; 
+    audio.play().catch(e => console.log("Sound error:", e)); 
+}
 refillHand();
 updateUI();
