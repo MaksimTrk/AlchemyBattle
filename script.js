@@ -27,7 +27,7 @@ const ENEMIES = [
         attackSound: "swamp_wizard_atack",
         special: function(damage) {
             const chance = Math.random();
-            if (chance < 0.33) {
+            if (chance < 0.2) {
                 state.enemyHP += damage;
                 if (state.enemyHP > state.enemyMaxHP) state.enemyHP = state.enemyMaxHP;
                 return `Vampirism! Wizard stole ${damage} HP!`;
@@ -357,4 +357,5 @@ function playSound(name) {
 }
 refillHand();
 updateUI();
+
 
