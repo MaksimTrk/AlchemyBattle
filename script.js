@@ -16,7 +16,8 @@ const ENEMIES = [
         attackAsset: 'assets/goblin_attack.png',
         background: 'assets/forest_bg.png',
         attackSound: "goblin_atack",
-        special: null 
+        ability: null, 
+        chance: 0
     },
     { 
         name: "Swamp Wizard", 
@@ -25,15 +26,8 @@ const ENEMIES = [
         attackAsset: 'assets/swamp_wizard_attack.png',
         background: 'assets/swamp_bg.png',
         attackSound: "swamp_wizard_atack",
-        special: function(damage) {
-            const chance = Math.random();
-            if (chance < 0.2) {
-                state.enemyHP += damage;
-                if (state.enemyHP > state.enemyMaxHP) state.enemyHP = state.enemyMaxHP;
-                return `Vampirism! Wizard stole ${damage} HP!`;
-            }
-            return null;
-        }
+        ability: "vampirism", 
+        chance: 0.2
     },
     { 
         name: "Swamp Ghost", 
@@ -42,13 +36,8 @@ const ENEMIES = [
         attackAsset: 'assets/swamp_ghost_attack.png',
         background: 'assets/swamp_ghost_bg.png',
         attackSound: "swamp_ghost_atack",
-        special: function(damage) {
-        const chance = Math.random();
-        if (chance < 0.33) {
-            return "Ethereal! The ghost avoided damage!";
-        }
-        return null;
-    }
+        ability: "dodge", 
+        chance: 0.33
     }
 ];
 
@@ -239,23 +228,23 @@ function checkCombo() {
 }
 
 function applyEffect(effect) {
-    if (effect.damage > 0) {
-       const currentEnemy = ENEMIES[state.currentEnemyIndex];
-        const specialResult = currentEnemy.special ? currentEnemy.special(effect.damage) : null;
-        if (specialResult && currentEnemy.name === "Swamp Ghost") {
-            playSound('damage_dodge'); 
-            log.innerText = specialResult;
-        } else {
-            playSound('wizard_atack');
-            triggerAction('player', 'attack');
-            state.enemyHP -= effect.damage;
+    const enemy = ENEMIES[state.currentEnemyIndex];
+    let message = `You crafted ${effect.name}! ${effect.msg}`;
 
-            let logMsg = `You crafted ${effect.name}! ${effect.msg}`;
-            if (specialResult && currentEnemy.name === "Swamp Wizard") {
-                logMsg += ` ${specialResult}`;
-            }
-            log.innerText = logMsg;
+    if (effect.damage > 0) {
+       if (enemy.ability == "dodge" && Math.random() < enemy.chance) {
+            playSound('damage_dodge');
+            log.innerText = `${enemy.name} dodged your attack!`;
+            updateUI(); 
+            return; 
         }
+
+
+        playSound('wizard_atack');
+        triggerAction('player', 'attack');
+        state.enemyHP -= effect.damage;
+
+
     }
     if (effect.heal > 0) {
         playSound('wizard_heal');
@@ -264,6 +253,7 @@ function applyEffect(effect) {
     }
     if (state.playerHP > 100) state.playerHP = 100;
     log.innerText = `You crafted ${effect.name}! ${effect.msg}`;
+    
 }
 
 function updateUI() {
@@ -313,11 +303,12 @@ function enemyTurn() {
         
         let message = `Enemy attacks! It dealt ${damage} damage.`;
 
-        if (currentEnemy.special) {
-            const specialMessage = currentEnemy.special(damage);
-            if (specialMessage) {
-                message += ` ${specialMessage}`;
-            }
+        if (currentEnemy.ability == "vampirism" && Math.random() < currentEnemy.chance) {
+            state.enemyHP += damage; 
+            if (state.enemyHP > state.enemyMaxHP) state.enemyHP = state.enemyMaxHP;
+            
+            message += ` Vampirism! ${currentEnemy.name} healed +${damage} HP!`;
+            playSound('wizard_heal'); 
         }
         
         log.innerText = message;
@@ -357,5 +348,3 @@ function playSound(name) {
 }
 refillHand();
 updateUI();
-
-
