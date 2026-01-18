@@ -37,7 +37,18 @@ const ENEMIES = [
         background: 'assets/swamp_ghost_bg.png',
         attackSound: "swamp_ghost_atack",
         ability: "dodge", 
-        chance: 0.33
+        chance: 0.25
+    },
+    { 
+        name: "Cursed Bride", 
+        hp: 130, 
+        asset: 'assets/bride.png', 
+        attackAsset: 'assets/bride_attack.png',
+        reflectAsset: 'assets/bride_reflect.png', 
+        background: 'assets/cathedral_bg.png',
+        attackSound: "bride_atack",
+        ability: "reflect", 
+        chance: 0.4 
     }
 ];
 
@@ -98,7 +109,10 @@ function renderHand() {
         const card = document.createElement('div');
         card.className = 'card';
 
-        card.innerHTML = `<img src="${ASSETS[id]}" alt="${id}" style="width:100%; height:auto;">`;
+        card.innerHTML = `
+            <img src="${ASSETS[id]}" alt="${id}">
+            <div class="card-label">${id}</div>
+        `;
         card.onclick = () => selectIngredient(index);
         handContainer.appendChild(card);
     });
@@ -155,8 +169,8 @@ function updateSlots() {
     const s1 = state.selected[0];
     const s2 = state.selected[1];
 
-    slot1.innerHTML = s1 ? `<img src="${ASSETS[s1]}" style="width:100%;">` : '?';
-    slot2.innerHTML = s2 ? `<img src="${ASSETS[s2]}" style="width:100%;">` : '?';
+    slot1.innerHTML = s1 ? `<img src="${ASSETS[s1]}" style="width:70%;"><div class="card-label">${s1}</div>` : '?';
+    slot2.innerHTML = s2 ? `<img src="${ASSETS[s2]}" style="width:70%;"><div class="card-label">${s2}</div>` : '?';
 }
 function triggerAction(entity, type) {
     const elementId = entity === 'player' ? 'player-sprite' : 'enemy-sprite';
@@ -237,6 +251,27 @@ function applyEffect(effect) {
             log.innerText = `${enemy.name} dodged your attack!`;
             updateUI(); 
             return; 
+        }
+        if (enemy.ability == "reflect" && Math.random() < enemy.chance) {
+            const enemyContainer = document.getElementById('enemy-sprite');
+            enemyContainer.classList.add('reflect-shake');
+            setTimeout(() => {
+                enemyContainer.classList.remove('reflect-shake');
+            }, 500);
+            const reflectedDamage = Math.floor(effect.damage * 0.5); 
+            state.playerHP -= reflectedDamage;
+
+            const enemyImg = document.querySelector('#enemy-sprite img');
+            enemyImg.src = enemy.reflectAsset;
+            
+            playSound('bride_reflect'); 
+            log.innerText = `The Bride throws a bouquet! You took ${reflectedDamage} reflected damage!`;
+
+            setTimeout(() => {
+                enemyImg.src = enemy.asset;
+            }, 1000);
+            
+            updateUI();
         }
 
 
@@ -348,3 +383,11 @@ function playSound(name) {
 }
 refillHand();
 updateUI();
+
+window.onclick = function(event) {
+    const bookModal = document.getElementById('recipe-book');
+    // Якщо натиснули на фон (модальне вікно), але не на саму книгу (book-body)
+    if (event.target == bookModal) {
+        toggleRecipeBook();
+    }
+}
