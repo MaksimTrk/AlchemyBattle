@@ -5,7 +5,10 @@ const state = {
     currentEnemyIndex: 0,
     deck: ['fire', 'water', 'root', 'mercury', 'fire', 'water', 'root'],
     hand: [],
-    selected: [] 
+    selected: [],
+    effects: {
+        shield: 0
+    }
 };
 
 const ENEMIES = [
@@ -49,7 +52,29 @@ const ENEMIES = [
         attackSound: "bride_atack",
         ability: "reflect", 
         chance: 0.4 
+    },
+    { 
+    name: "Cursed Witch & Rat", 
+    hp: 200, 
+    maxHp: 200,
+    asset: 'assets/witch.png', 
+    attackAsset: 'assets/witch_attack.png',
+    protectedAsset: 'assets/witch_protected.png',
+    size: "150px",
+    background: 'assets/cathedral_interior.png',
+    attackSound: "witch_atack",
+    ability: "summon",
+    minion: {
+        name: "Plague Rat",
+        hp: 50,
+        maxHp: 50,
+        asset: 'assets/rat.png',
+        attackAsset: 'assets/rat_attack.png',
+        attackSound: "rat_atack",
+        size: "95px",
+        alive: true
     }
+}
 ];
 
 const ASSETS = {
@@ -194,17 +219,31 @@ function triggerAction(entity, type) {
 }
 function loadEnemy(index) {
     const enemy = ENEMIES[index];
+    const minionArea = document.getElementById('minion-container');
     state.enemyHP = enemy.hp;
     state.enemyMaxHP = enemy.hp;
 
     const gameContainer = document.getElementById('game-container');
     
+    // Міньйон
+    if (enemy.minion) {
+        minionArea.style.display = 'block';
+        document.getElementById('minion-name').innerText = enemy.minion.name;
+
+        const minionSize = enemy.minion.size || "60px"; 
+        document.getElementById('minion-sprite').innerHTML = 
+            `<img src="${enemy.minion.asset}" style="width:${minionSize};">`;
+    } else {
+        minionArea.style.display = 'none';
+    }
+
     if (enemy.background) {
         gameContainer.style.backgroundImage = `url('${enemy.background}')`;
     }
-    
+
     const enemySprite = document.getElementById('enemy-sprite');
-    enemySprite.innerHTML = `<img src="${enemy.asset}" style="width:120px;">`;
+    const displaySize = enemy.size || "120px"; 
+    enemySprite.innerHTML = `<img src="${enemy.asset}" style="width:${displaySize};">`;
     
     log.innerText = `A wild ${enemy.name} appears!`;
     updateUI();
@@ -244,51 +283,79 @@ function checkCombo() {
 function applyEffect(effect) {
     const enemy = ENEMIES[state.currentEnemyIndex];
     let message = `You crafted ${effect.name}! ${effect.msg}`;
+    if (effect.name === "Ironwood Shield") {
+    state.effects.shield = 1; 
+    log.innerText = "You are protected by ironwood!";
+}
 
     if (effect.damage > 0) {
-       if (enemy.ability == "dodge" && Math.random() < enemy.chance) {
+        if (enemy.ability == "dodge" && Math.random() < enemy.chance) {
             playSound('damage_dodge');
             log.innerText = `${enemy.name} dodged your attack!`;
             updateUI(); 
             return; 
         }
+
         if (enemy.ability == "reflect" && Math.random() < enemy.chance) {
             const enemyContainer = document.getElementById('enemy-sprite');
             enemyContainer.classList.add('reflect-shake');
-            setTimeout(() => {
-                enemyContainer.classList.remove('reflect-shake');
-            }, 500);
+            setTimeout(() => enemyContainer.classList.remove('reflect-shake'), 500);
+            
             const reflectedDamage = Math.floor(effect.damage * 0.5); 
             state.playerHP -= reflectedDamage;
 
             const enemyImg = document.querySelector('#enemy-sprite img');
-            enemyImg.src = enemy.reflectAsset;
+            if (enemy.reflectAsset) enemyImg.src = enemy.reflectAsset;
             
             playSound('bride_reflect'); 
-            log.innerText = `The Bride throws a bouquet! You took ${reflectedDamage} reflected damage!`;
+            message = `The Bride reflects it! You took ${reflectedDamage} damage!`;
 
             setTimeout(() => {
                 enemyImg.src = enemy.asset;
             }, 1000);
-            
-            updateUI();
         }
 
+       if (enemy.minion && enemy.minion.hp > 0) {
+            enemy.minion.hp -= effect.damage;
+            message = `The ${enemy.minion.name} protects the Witch! (-${effect.damage} HP)`;
+
+            const enemyImg = document.querySelector('#enemy-sprite img');
+            if (enemyImg && enemy.protectedAsset) {
+                enemyImg.src = enemy.protectedAsset; 
+                const baseSize = parseInt(enemy.size) || 120;
+                const enlargedSize = (baseSize * 1.1) + "px"; 
+
+                enemyImg.style.width = enlargedSize;
+                setTimeout(() => {
+                    if (state.enemyHP > 0) {
+                        enemyImg.src = enemy.asset;
+                        enemyImg.style.width = (baseSize + "px");
+                    }
+                }, 800);
+            }
+
+            if (enemy.minion.hp <= 0) {
+                enemy.minion.hp = 0;
+                message = `The ${enemy.minion.name} is defeated! Witch is now vulnerable!`;
+            }
+        } else {
+            state.enemyHP -= effect.damage;
+        }
 
         playSound('wizard_atack');
         triggerAction('player', 'attack');
-        state.enemyHP -= effect.damage;
-
-
     }
+
     if (effect.heal > 0) {
         playSound('wizard_heal');
         triggerAction('player', 'heal');
         state.playerHP += effect.heal;
     }
+
     if (state.playerHP > 100) state.playerHP = 100;
-    log.innerText = `You crafted ${effect.name}! ${effect.msg}`;
-    
+
+    log.innerText = message;
+    updateUI();
 }
 
 function updateUI() {
@@ -298,7 +365,13 @@ function updateUI() {
     const enemyPercentage = (state.enemyHP / state.enemyMaxHP) * 100;
     document.getElementById('enemy-hp-fill').style.width = Math.max(0, enemyPercentage) + '%';
     document.getElementById('enemy-hp-text').innerText = `${state.enemyHP}/${state.enemyMaxHP}`;
+    const enemy = ENEMIES[state.currentEnemyIndex];
+    if (enemy.minion) {
+        const minionPercent = (enemy.minion.hp / enemy.minion.maxHp) * 100;
+        document.getElementById('minion-hp-fill').style.width = Math.max(0, minionPercent) + '%';
 
+        document.getElementById('minion-sprite').style.opacity = enemy.minion.hp <= 0 ? '0.3' : '1';
+    }
     if (state.enemyHP <= 0) {
         const healAmount = Math.floor(state.playerHP * 0.5); 
             state.playerHP += healAmount;
@@ -318,6 +391,32 @@ function updateUI() {
         log.innerText = "GAME OVER...";
         endGame();
     }
+    const effectsContainer = document.getElementById('player-effects');
+    effectsContainer.innerHTML = ''; 
+
+    if (state.effects.shield > 0) {
+        const shieldWrapper = document.createElement('div');
+        shieldWrapper.style.position = 'relative';
+        shieldWrapper.style.display = 'inline-block';
+
+        // Іконка
+        shieldWrapper.innerHTML = `
+            <span style="font-size: 24px;">🛡️</span>
+            <b style="
+                position: absolute; 
+                bottom: -5px; 
+                right: -5px; 
+                background: white; 
+                border-radius: 50%; 
+                padding: 2px 5px; 
+                font-size: 10px; 
+                color: black;
+                border: 1px solid green;
+            ">${state.effects.shield}</b>
+        `;
+        
+        effectsContainer.appendChild(shieldWrapper);
+    }
 }
 
 function enemyTurn() {
@@ -327,27 +426,55 @@ function enemyTurn() {
         if (state.enemyHP <= 0) return;
 
         const currentEnemy = ENEMIES[state.currentEnemyIndex];
+
         const minDamage = 8;
         const maxDamage = 16;
-        const damage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
-        if (currentEnemy.attackSound) {
-            playSound(currentEnemy.attackSound);
+        let mainDamage = Math.floor(Math.random() * (maxDamage - minDamage + 1)) + minDamage;
+
+        let minionDamage = 0;
+        if (currentEnemy.minion && currentEnemy.minion.hp > 0) {
+            minionDamage = Math.floor(Math.random() * 5) + 3; 
         }
+
+        // Анімації та звуки (залишаємо як було)
+        if (minionDamage > 0) {
+            if (currentEnemy.minion.attackSound) playSound(currentEnemy.minion.attackSound);
+            const minionImg = document.querySelector('#minion-sprite img');
+            if (minionImg && currentEnemy.minion.attackAsset) {
+                minionImg.src = currentEnemy.minion.attackAsset;
+                setTimeout(() => { minionImg.src = currentEnemy.minion.asset; }, 800);
+            }
+        }
+
+        if (currentEnemy.attackSound) playSound(currentEnemy.attackSound);
         triggerAction('enemy', 'attack');
-        state.playerHP -= damage;
-        
-        let message = `Enemy attacks! It dealt ${damage} damage.`;
+
+        let totalDamage = mainDamage + minionDamage;
+        let shieldWasActive = false;
+
+        if (state.effects.shield > 0) {
+            totalDamage = Math.floor(totalDamage * 0.3); 
+            state.effects.shield -= 1; 
+            shieldWasActive = true;
+            playSound('shield_block'); 
+        }
+
+        state.playerHP -= totalDamage;
+
+        let message = `Enemy attacks dealt ${totalDamage} damage.`;
+        if (shieldWasActive) {
+            message = `🛡️ Shield absorbed damage! You took only ${totalDamage}. Hits left: ${state.effects.shield}`;
+        } else if (minionDamage > 0) {
+            message += ` (including ${currentEnemy.minion.name} bite)`;
+        }
 
         if (currentEnemy.ability == "vampirism" && Math.random() < currentEnemy.chance) {
-            state.enemyHP += damage; 
+            state.enemyHP += mainDamage; 
             if (state.enemyHP > state.enemyMaxHP) state.enemyHP = state.enemyMaxHP;
-            
-            message += ` Vampirism! ${currentEnemy.name} healed +${damage} HP!`;
-            playSound('wizard_heal'); 
+            message += ` Vampirism! +${mainDamage} HP!`;
         }
-        
-        log.innerText = message;
 
+        log.innerText = message;
         refillHand(); 
         updateUI();
     }, 1200);
@@ -386,7 +513,6 @@ updateUI();
 
 window.onclick = function(event) {
     const bookModal = document.getElementById('recipe-book');
-    // Якщо натиснули на фон (модальне вікно), але не на саму книгу (book-body)
     if (event.target == bookModal) {
         toggleRecipeBook();
     }
