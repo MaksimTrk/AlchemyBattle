@@ -3,12 +3,13 @@ const state = {
     enemyHP: 100,
     enemyMaxHP: 100,
     currentEnemyIndex: 0,
-    deck: ['fire', 'water', 'root', 'mercury', 'fire', 'water', 'root'],
+    deck: ['fire', 'water', 'root', 'mercury', 'fire', 'root'],
     hand: [],
     selected: [],
     effects: {
         shield: 0
-    }
+    },
+    isPlayerTurn: true
 };
 
 const ENEMIES = [
@@ -144,6 +145,8 @@ function renderHand() {
 }
 
 function selectIngredient(index) {
+    if (!state.isPlayerTurn) return; 
+
     if (state.selected.length < 2) {
         const id = state.hand[index];
         state.selected.push(id);
@@ -153,6 +156,8 @@ function selectIngredient(index) {
         renderHand();
 
         if (state.selected.length === 2) {
+            state.isPlayerTurn = false; 
+            updateUI(); 
             setTimeout(checkCombo, 600);
         }
     }
@@ -275,9 +280,11 @@ function checkCombo() {
     refillHand();
     updateUI();
     
-    if (state.enemyHP > 0 && state.playerHP > 0) {
-        enemyTurn();
-    }
+    setTimeout(() => {
+            if (!checkDeath()) {
+                enemyTurn();
+            }
+    }, 1300);
 }
 
 function applyEffect(effect) {
@@ -372,25 +379,7 @@ function updateUI() {
 
         document.getElementById('minion-sprite').style.opacity = enemy.minion.hp <= 0 ? '0.3' : '1';
     }
-    if (state.enemyHP <= 0) {
-        const healAmount = Math.floor(state.playerHP * 0.5); 
-            state.playerHP += healAmount;
-            if (state.playerHP > 100) state.playerHP = 100; 
-            
-            playSound('wizard_heal');
-            log.innerText = `Enemy defeated! Restoring ${healAmount} HP. Next one is coming...`;
-        if (state.currentEnemyIndex < ENEMIES.length - 1) {
-            state.currentEnemyIndex++;
-            log.innerText = "Enemy defeated! Next one is coming...";
-            setTimeout(() => loadEnemy(state.currentEnemyIndex), 2000);
-        } else {
-            log.innerText = "VICTORY! All enemies defeated!";
-            endGame();
-        }
-    } else if (state.playerHP <= 0) {
-        log.innerText = "GAME OVER...";
-        endGame();
-    }
+  
     const effectsContainer = document.getElementById('player-effects');
     effectsContainer.innerHTML = ''; 
 
@@ -417,8 +406,51 @@ function updateUI() {
         
         effectsContainer.appendChild(shieldWrapper);
     }
+    const handContainer = document.getElementById('hand');
+    if (state.isPlayerTurn) {
+        handContainer.style.opacity = "1";
+        handContainer.style.pointerEvents = "auto";
+    } else {
+        handContainer.style.opacity = "0.5";
+        handContainer.style.pointerEvents = "none"; 
+    }
 }
+function checkDeath() {
+   if (state.enemyHP <= 0) {
+        state.enemyHP = 0; 
+        updateUI();
 
+        const healAmount = Math.floor(state.playerHP * 0.5);
+        state.playerHP = Math.min(100, state.playerHP + healAmount);
+        
+        playSound('wizard_heal');
+        log.innerText = `Enemy defeated! Restoring ${healAmount} HP.`;
+
+        if (state.currentEnemyIndex < ENEMIES.length - 1) {
+            state.currentEnemyIndex++;
+
+            setTimeout(() => {
+                loadEnemy(state.currentEnemyIndex);
+                state.isPlayerTurn = true; 
+                log.innerText += " Your turn!";
+                updateUI();
+            }, 2000);
+        } else {
+            log.innerText = "VICTORY! All enemies defeated!";
+            endGame();
+        }
+        return true; 
+    }
+
+    if (state.playerHP <= 0) {
+        state.playerHP = 0;
+        updateUI();
+        log.innerText = "GAME OVER...";
+        endGame();
+        return true;
+    }
+    return false;
+}
 function enemyTurn() {
     log.innerText += " ...Enemy is preparing...";
     
@@ -436,7 +468,6 @@ function enemyTurn() {
             minionDamage = Math.floor(Math.random() * 5) + 3; 
         }
 
-        // Анімації та звуки (залишаємо як було)
         if (minionDamage > 0) {
             if (currentEnemy.minion.attackSound) playSound(currentEnemy.minion.attackSound);
             const minionImg = document.querySelector('#minion-sprite img');
@@ -476,7 +507,17 @@ function enemyTurn() {
 
         log.innerText = message;
         refillHand(); 
+        checkDeath();
+
+        const isGameOver = checkDeath(); 
+        
         updateUI();
+
+        if (!isGameOver) {
+            state.isPlayerTurn = true; 
+            log.innerText += " Your turn!";
+            updateUI(); 
+        }
     }, 1200);
 }
 
@@ -489,6 +530,7 @@ function endGame() {
 function resetGame() {
     state.playerHP = 100;
     state.enemyHP = 100;
+    state.currentEnemyIndex = 0;
     state.hand = [];
     state.selected = [];
     
